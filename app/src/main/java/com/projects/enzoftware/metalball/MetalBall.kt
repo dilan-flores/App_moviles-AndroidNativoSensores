@@ -1,3 +1,5 @@
+package com.projects.enzoftware.metalball
+
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
@@ -17,7 +19,6 @@ import android.view.View
 import android.view.Window
 import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
-import com.projects.enzoftware.metalball.R
 
 class MetalBall : AppCompatActivity(), SensorEventListener {
 

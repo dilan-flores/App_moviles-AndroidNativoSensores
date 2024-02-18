@@ -3,17 +3,18 @@ apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 
 android {
-    compileSdkVersion 34
+    compileSdkVersion 33
     buildToolsVersion "30.0.2"
     buildFeatures {
         viewBinding = true
     }
     defaultConfig {
+        targetSdkVersion 33
         applicationId "com.projects.enzoftware.metalball"
         minSdkVersion 19
         versionCode 1
         versionName "1.0"
-        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
         release {
