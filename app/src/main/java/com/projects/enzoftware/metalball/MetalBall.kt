@@ -1,7 +1,3 @@
-package com.projects.enzoftware.metalball
-
-import android.app.Service
-import android.bluetooth.BluetoothClass
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
@@ -13,59 +9,60 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
-import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Vibrator
-import android.view.*
+import android.view.SurfaceHolder
+import android.view.SurfaceView
+import android.view.View
+import android.view.Window
+import android.view.WindowManager
+import androidx.appcompat.app.AppCompatActivity
+import com.projects.enzoftware.metalball.R
 
-class MetalBall : AppCompatActivity() , SensorEventListener {
+class MetalBall : AppCompatActivity(), SensorEventListener {
 
-    private var mSensorManager : SensorManager ?= null
-    private var mAccelerometer : Sensor ?= null
-    var ground : GroundView ?= null
-
+    private var mSensorManager: SensorManager? = null
+    private var mAccelerometer: Sensor? = null
+    private var ground: GroundView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        requestWindowFeature(Window.FEATURE_NO_TITLE)
         super.onCreate(savedInstanceState)
-        // get reference of the service
-        mSensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        // focus in accelerometer
-        mAccelerometer = mSensorManager!!.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-        // setup the window
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-
-        window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
-                        WindowManager.LayoutParams.FLAG_FULLSCREEN)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB){
-            window.decorView.systemUiVisibility =   View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-            View.SYSTEM_UI_FLAG_FULLSCREEN
-            View.SYSTEM_UI_FLAG_IMMERSIVE
+        requestWindowFeature(Window.FEATURE_NO_TITLE)
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_FULLSCREEN,
+            WindowManager.LayoutParams.FLAG_FULLSCREEN
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+            window.decorView.systemUiVisibility =
+                (View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        or View.SYSTEM_UI_FLAG_FULLSCREEN
+                        or View.SYSTEM_UI_FLAG_IMMERSIVE)
         }
-
-        // set the view
+        mSensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        mAccelerometer = mSensorManager!!.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         ground = GroundView(this)
         setContentView(ground)
     }
-
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
         if (event != null) {
-            ground!!.updateMe(event.values[1] , event.values[0])
+            ground!!.updateMe(event.values[1], event.values[0])
         }
     }
 
     override fun onResume() {
         super.onResume()
-        mSensorManager!!.registerListener(this,mAccelerometer,
-                                        SensorManager.SENSOR_DELAY_GAME)
+        mSensorManager!!.registerListener(
+            this, mAccelerometer,
+            SensorManager.SENSOR_DELAY_GAME
+        )
     }
 
     override fun onPause() {
@@ -73,163 +70,128 @@ class MetalBall : AppCompatActivity() , SensorEventListener {
         mSensorManager!!.unregisterListener(this)
     }
 
-    class DrawThread (surfaceHolder: SurfaceHolder , panel : GroundView) : Thread() {
-        private var surfaceHolder :SurfaceHolder ?= null
-        private var panel : GroundView ?= null
+    inner class DrawThread(private val surfaceHolder: SurfaceHolder, private val panel: GroundView) : Thread() {
         private var run = false
 
-        init {
-            this.surfaceHolder = surfaceHolder
-            this.panel = panel
-        }
-
-        fun setRunning(run : Boolean){
+        fun setRunning(run: Boolean) {
             this.run = run
         }
 
         override fun run() {
-            var c: Canvas ?= null
-            while (run){
+            var c: Canvas? = null
+            while (run) {
                 c = null
                 try {
-                    c = surfaceHolder!!.lockCanvas(null)
-                    synchronized(surfaceHolder!!){
-                        panel!!.draw(c)
+                    c = surfaceHolder.lockCanvas(null)
+                    synchronized(surfaceHolder) {
+                        panel.draw(c)
                     }
-                }finally {
-                    if (c!= null){
-                        surfaceHolder!!.unlockCanvasAndPost(c)
+                } finally {
+                    if (c != null) {
+                        surfaceHolder.unlockCanvasAndPost(c)
                     }
                 }
             }
         }
-
     }
-
 }
 
+class GroundView(context: Context) : SurfaceView(context), SurfaceHolder.Callback {
 
-class GroundView(context: Context?) : SurfaceView(context), SurfaceHolder.Callback{
+    private var cx: Float = 10f
+    private var cy: Float = 10f
 
-    // ball coordinates
-    var cx : Float = 10.toFloat()
-    var cy : Float = 10.toFloat()
+    private var lastGx: Float = 0f
+    private var lastGy: Float = 0f
 
-    // last position increment
+    private var picHeight: Int = 0
+    private var picWidth: Int = 0
 
-    var lastGx : Float = 0.toFloat()
-    var lastGy : Float = 0.toFloat()
+    private var icon: Bitmap? = null
 
-    // graphic size of the ball
+    private var windowWidth: Int = 0
+    private var windowHeight: Int = 0
 
-    var picHeight: Int = 0
-    var picWidth : Int = 0
+    private var noBorderX = false
+    private var noBorderY = false
 
-    var icon:Bitmap ?= null
-
-    // window size
-
-    var Windowwidth : Int = 0
-    var Windowheight : Int = 0
-
-    // is touching the edge ?
-
-    var noBorderX = false
-    var noBorderY = false
-
-    var vibratorService : Vibrator ?= null
-    var thread : MetalBall.DrawThread?= null
-
-
+    private var vibratorService: Vibrator? = null
+    private var thread: MetalBall.DrawThread? = null
 
     init {
         holder.addCallback(this)
-        //create a thread
-        thread = MetalBall.DrawThread(holder, this)
-        // get references and sizes of the objects
-        val display: Display = (getContext().getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay
-        val size:Point = Point()
+        val display = (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay
+        val size = Point()
         display.getSize(size)
-        Windowwidth = size.x
-        Windowheight = size.y
-        icon = BitmapFactory.decodeResource(resources,R.drawable.ball)
+        windowWidth = size.x
+        windowHeight = size.y
+        icon = BitmapFactory.decodeResource(resources, R.drawable.ball)
         picHeight = icon!!.height
         picWidth = icon!!.width
-        vibratorService = (getContext().getSystemService(Service.VIBRATOR_SERVICE)) as Vibrator
+        vibratorService = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
     }
 
-    override fun surfaceChanged(holder: SurfaceHolder?, format: Int, width: Int, height: Int) {
+    override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
     }
 
-    override fun surfaceDestroyed(holder: SurfaceHolder?) {
+    override fun surfaceDestroyed(holder: SurfaceHolder) {
     }
 
-    override fun surfaceCreated(holder: SurfaceHolder?) {
+    override fun surfaceCreated(holder: SurfaceHolder) {
+        thread = MetalBall().DrawThread(holder, this)
         thread!!.setRunning(true)
         thread!!.start()
     }
 
-    override fun draw(canvas: Canvas?) {
+    override fun draw(canvas: Canvas) {
         super.draw(canvas)
-        if (canvas != null){
-            canvas.drawColor(0xFFAAAAA)
-            canvas.drawBitmap(icon,cx,cy,null)
-        }
+        canvas.drawColor(0xFFAAAAA.toInt())
+        canvas.drawBitmap(icon!!, cx, cy, null)
     }
 
-    override public fun onDraw(canvas: Canvas?) {
-
-        if (canvas != null){
-            canvas.drawColor(0xFFAAAAA)
-            canvas.drawBitmap(icon,cx,cy,null)
-        }
-    }
-
-    fun updateMe(inx : Float , iny : Float){
+    fun updateMe(inx: Float, iny: Float) {
         lastGx += inx
         lastGy += iny
 
         cx += lastGx
         cy += lastGy
 
-        if(cx > (Windowwidth - picWidth)){
-            cx = (Windowwidth - picWidth).toFloat()
-            lastGx = 0F
-            if (noBorderX){
+        if (cx > (windowWidth - picWidth)) {
+            cx = (windowWidth - picWidth).toFloat()
+            lastGx = 0f
+            if (noBorderX) {
                 vibratorService!!.vibrate(100)
                 noBorderX = false
             }
-        }
-        else if(cx < (0)){
-            cx = 0F
-            lastGx = 0F
-            if(noBorderX){
+        } else if (cx < 0) {
+            cx = 0f
+            lastGx = 0f
+            if (noBorderX) {
                 vibratorService!!.vibrate(100)
                 noBorderX = false
             }
+        } else {
+            noBorderX = true
         }
-        else{ noBorderX = true }
 
-        if (cy > (Windowheight - picHeight)){
-            cy = (Windowheight - picHeight).toFloat()
-            lastGy = 0F
-            if (noBorderY){
+        if (cy > (windowHeight - picHeight)) {
+            cy = (windowHeight - picHeight).toFloat()
+            lastGy = 0f
+            if (noBorderY) {
                 vibratorService!!.vibrate(100)
                 noBorderY = false
             }
-        }
-
-        else if(cy < (0)){
-            cy = 0F
-            lastGy = 0F
-            if (noBorderY){
+        } else if (cy < 0) {
+            cy = 0f
+            lastGy = 0f
+            if (noBorderY) {
                 vibratorService!!.vibrate(100)
-                noBorderY= false
+                noBorderY = false
             }
+        } else {
+            noBorderY = true
         }
-        else{ noBorderY = true }
 
         invalidate()
-
     }
 }
