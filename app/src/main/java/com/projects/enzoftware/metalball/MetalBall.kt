@@ -19,12 +19,15 @@ import android.view.View
 import android.view.Window
 import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
+import com.google.firebase.database.DatabaseReference
+import com.google.firebase.database.FirebaseDatabase
 
 class MetalBall : AppCompatActivity(), SensorEventListener {
 
     private var mSensorManager: SensorManager? = null
     private var mAccelerometer: Sensor? = null
     private var ground: GroundView? = null
+    private lateinit var databaseReference: DatabaseReference
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,16 +50,25 @@ class MetalBall : AppCompatActivity(), SensorEventListener {
         mAccelerometer = mSensorManager!!.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         ground = GroundView(this)
         setContentView(ground)
+
+        // Inicializa la referencia a la base de datos de Firebase
+        databaseReference = FirebaseDatabase.getInstance().reference.child("movimientos")
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
-        if (event != null) {
-            ground!!.updateMe(event.values[1], event.values[0])
+        if (event != null && event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
+            // Actualiza la vista con los movimientos
+            ground?.updateMe(event.values[1], event.values[0])
+
+            // Envía los datos de los movimientos a Firebase Database
+            val movimiento = mapOf("gx" to event.values[1], "gy" to event.values[0])
+            databaseReference.setValue(movimiento)
         }
     }
+
 
     override fun onResume() {
         super.onResume()
