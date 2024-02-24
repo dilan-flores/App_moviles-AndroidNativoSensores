@@ -21,6 +21,8 @@ import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
+import java.util.Timer
+import java.util.TimerTask
 
 class MetalBall : AppCompatActivity(), SensorEventListener {
 
@@ -131,6 +133,18 @@ class GroundView(context: Context) : SurfaceView(context), SurfaceHolder.Callbac
     private var vibratorService: Vibrator? = null
     private var thread: MetalBall.DrawThread? = null
 
+    private var objectBitmap: Bitmap? = null // Variable para la imagen del objeto
+    private var objectX: Float = 100f // Posición X inicial del objeto
+    private var objectY: Float = 100f // Posición Y inicial del objeto
+
+    private var objectSpeedX: Float = 5f // Velocidad del objeto en el eje X
+    private var objectSpeedY: Float = 5f // Velocidad del objeto en el eje Y
+
+    private var canMove: Boolean = false // Indica si la bola puede moverse
+
+    private var gameOver = false // Variable para controlar si el juego ha terminado
+    private var loseMessageDisplayed = false
+
     init {
         holder.addCallback(this)
         val display = (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay
@@ -138,11 +152,27 @@ class GroundView(context: Context) : SurfaceView(context), SurfaceHolder.Callbac
         display.getSize(size)
         windowWidth = size.x
         windowHeight = size.y
-        icon = BitmapFactory.decodeResource(resources, R.drawable.ball)
+
+        // Redimensionar el bitmap para ajustar el tamaño de la bola
+        val originalIcon = BitmapFactory.decodeResource(resources, R.drawable.ball)
+        icon = Bitmap.createScaledBitmap(originalIcon, originalIcon.width / 4, originalIcon.height / 4, false)
+
         picHeight = icon!!.height
         picWidth = icon!!.width
         vibratorService = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+
+        val objectOriginalBitmap = BitmapFactory.decodeResource(resources, R.drawable.img)
+        objectBitmap = Bitmap.createScaledBitmap(objectOriginalBitmap, objectOriginalBitmap.width / 4, objectOriginalBitmap.height / 4, false)
+
+        // Configura un temporizador para habilitar el movimiento después de un tiempo determinado
+        val timer = Timer()
+        timer.schedule(object : TimerTask() {
+            override fun run() {
+                canMove = true
+            }
+        }, 3000) // Tiempo en milisegundos antes de permitir el movimiento (3 segundos en este ejemplo)
     }
+
 
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
     }
@@ -159,15 +189,33 @@ class GroundView(context: Context) : SurfaceView(context), SurfaceHolder.Callbac
     override fun draw(canvas: Canvas) {
         super.draw(canvas)
         canvas.drawColor(0xFFAAAAA.toInt())
-        canvas.drawBitmap(icon!!, cx, cy, null)
+
+        // Dibujar la imagen del objeto
+        if (objectBitmap != null) {
+            canvas.drawBitmap(objectBitmap!!, objectX, objectY, null)
+        }
+
+        // Dibujar la imagen de la pelota
+        if (icon != null) {
+            canvas.drawBitmap(icon!!, cx, cy, null)
+        }
     }
 
     fun updateMe(inx: Float, iny: Float) {
+        if (!canMove) return // Si no se puede mover, sal de la función
+
         lastGx += inx
         lastGy += iny
 
         cx += lastGx
         cy += lastGy
+
+        // Detectar colisión entre la bola y el objeto
+        if (isColliding(cx, cy, picWidth, picHeight, objectX, objectY, objectBitmap!!.width, objectBitmap!!.height)) {
+            // Cambiar la posición del objeto
+            objectX = (0..(windowWidth - objectBitmap!!.width)).random().toFloat()
+            objectY = (0..(windowHeight - objectBitmap!!.height)).random().toFloat()
+        }
 
         if (cx > (windowWidth - picWidth)) {
             cx = (windowWidth - picWidth).toFloat()
@@ -206,5 +254,14 @@ class GroundView(context: Context) : SurfaceView(context), SurfaceHolder.Callbac
         }
 
         invalidate()
+    }
+
+    // Método para detectar colisiones entre dos objetos rectangulares
+    private fun isColliding(
+        x1: Float, y1: Float, width1: Int, height1: Int,
+        x2: Float, y2: Float, width2: Int, height2: Int
+    ): Boolean {
+        return x1 < x2 + width2 && x1 + width1 > x2 &&
+                y1 < y2 + height2 && y1 + height1 > y2
     }
 }
